@@ -9,8 +9,8 @@ on:
 
 jobs:
   appium-test:
-    runs-on: macos-13 # macos runners support hardware acceleration for Android Emulators
-    
+    runs-on: ubuntu-latest   # Fast start, 1:1 quota, supports KVM for Android emulator
+
     env:
       APPIUM_SERVER: "http://localhost:4723"
       APP_PATH: "build/app/outputs/flutter-apk/app-debug.apk"
@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Enable KVM for Android Emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -39,7 +45,7 @@ jobs:
             flutter pub get
             flutter build apk --debug
           else
-            echo "WARNING: pubspec.yaml not found! Creating dummy APK for testing script configuration..."
+            echo "WARNING: pubspec.yaml not found! Creating placeholder APK path for script testing..."
             mkdir -p build/app/outputs/flutter-apk/
             touch build/app/outputs/flutter-apk/app-debug.apk
           fi
@@ -54,10 +60,11 @@ jobs:
           npm install -g appium
           appium driver install uiautomator2
 
+      - name: Create reports directory
+        run: mkdir -p appium_tests/reports/screenshots
+
       - name: Start Appium Server
-        run: |
-          appium --log appium_tests/reports/appium-server.log &
-        # Run Appium in the background
+        run: appium --log appium_tests/reports/appium-server.log &
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -77,8 +84,9 @@ jobs:
           target: default
           arch: x86_64
           profile: Nexus 6
-          script: |
-            python appium_tests/run_tests.py
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: python appium_tests/run_tests.py
 
       - name: Upload Test Reports & Screenshots
         uses: actions/upload-artifact@v4
@@ -87,3 +95,4 @@ jobs:
           name: appium-test-reports
           path: appium_tests/reports/
           retention-days: 7
+
