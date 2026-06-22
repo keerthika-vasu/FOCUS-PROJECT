@@ -222,10 +222,19 @@ def main():
         import pytest
         print("Starting live E2E Appium tests using Pytest...")
         collector = PytestCollector()
-        test_file = os.path.join(os.path.dirname(__file__), "test_login.py")
+        test_dir = os.path.dirname(__file__)
+        junit_xml = os.path.join(REPORTS_DIR, "junit.xml")
         
-        # Run pytest
-        pytest.main(["-v", test_file], plugins=[collector])
+        # Discover all test_*.py files in this directory
+        print(f"Discovering tests in: {test_dir}")
+        
+        # Run pytest across all test files with JUnit XML output for CI
+        pytest.main([
+            "-v",
+            test_dir,
+            f"--junit-xml={junit_xml}",
+            "--tb=short",
+        ], plugins=[collector])
         
         if not collector.results:
             print("Error: No test results collected. Verify Appium server is running and configuration is correct.")
